@@ -294,6 +294,22 @@ tr:last-child td { border-bottom:none; } tr:hover td { background:#fafafa; }
           <div class="grid" id="studentGrid"><div style="color:#aaa;font-size:13px;padding:20px">No candidates online yet.</div></div>
         </div>
         <div class="t-right">
+          <!-- Server MJPEG feed — shows OpenCV-annotated frames from student browser -->
+          <div style="background:white;border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:14px">
+            <div style="background:#111;color:white;padding:10px 14px;font-size:13px;font-weight:bold;display:flex;align-items:center;gap:8px;justify-content:space-between">
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:#e74c3c;display:inline-block;animation:blink 1s infinite"></span>🎥 Live Feed (Server AI)</span>
+              <span id="liveFeedLabel" style="font-size:11px;color:#aaa;font-weight:normal">No candidate</span>
+            </div>
+            <div style="position:relative;background:#111;min-height:160px;display:flex;align-items:center;justify-content:center">
+              <img id="liveFeedImg" src="" alt="Live"
+                onerror="this.style.opacity=0.2" onload="this.style.opacity=1"
+                style="width:100%;max-height:240px;object-fit:cover;display:block;opacity:0.3;transition:opacity 0.3s"/>
+            </div>
+            <div style="padding:6px 14px;background:#1a1a1a;color:#aaa;font-size:11px;display:flex;justify-content:space-between">
+              <span id="liveFeedStatus">Connecting…</span>
+              <span id="liveFeedBadge" style="padding:2px 8px;border-radius:4px;background:#222;color:#666">Offline</span>
+            </div>
+          </div>
           <div class="panel">
             <div class="panel-header">⚠️ Latest Flags <span style="font-size:11px;color:#27ae60;font-weight:normal;animation:blink 1.5s infinite">● Live</span></div>
             <table>
@@ -469,6 +485,8 @@ async function loadFaceModels(){
 
 function canFire(t){const n=Date.now();if((COOLDOWNS[t]||0)>n)return false;COOLDOWNS[t]=n+(COOLDOWN_MS[t]||6000);return true;}
 
+let framePushTimer=null;
+
 async function initProctoring(appNo,name){
   currentAppNumber=appNo; currentStudentName=name;
   document.getElementById("webcamBox").style.display="block";
@@ -479,7 +497,13 @@ async function initProctoring(appNo,name){
     vid.srcObject=webcamStream;
     await vid.play();
     document.getElementById("camDot").style.background="#27ae60";
-    document.getElementById("camText").textContent="AI Active · Webcam On";
+    document.getElementById("camText").textContent="AI Active · Webcam On · Server CV";
+    // Tell server which candidate
+    fetch(API_BASE+"/proctor/set_candidate",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({app_number:appNo,student_name:name})}).catch(()=>{});
+    // Push frames to server for OpenCV/MediaPipe processing
+    startFramePusher(vid, appNo);
+    // Also run face-api.js locally for zero-latency candidate feedback
     startFaceDetection();
     startAudioMonitoring();
     startSpeechRecognition();
@@ -489,6 +513,26 @@ async function initProctoring(appNo,name){
     toast("⚠ Camera access denied. Grant permission and reload.","error");
   }
   startTabMonitoring();
+}
+
+/* Push JPEG frames to server every 200ms so server-side OpenCV can process them */
+function startFramePusher(videoEl, appNo){
+  const cap=document.createElement("canvas"); cap.width=320; cap.height=240;
+  const ctx=cap.getContext("2d");
+  async function pushFrame(){
+    if(!webcamStream||videoEl.readyState<2){framePushTimer=setTimeout(pushFrame,400);return;}
+    try{
+      ctx.drawImage(videoEl,0,0,cap.width,cap.height);
+      cap.toBlob(async blob=>{
+        if(!blob)return;
+        await fetch(API_BASE+"/proctor/frame/"+appNo,{method:"POST",
+          headers:{"Content-Type":"application/octet-stream"},body:blob,credentials:"include"
+        }).catch(()=>{});
+      },"image/jpeg",0.6);
+    }catch(e){}
+    framePushTimer=setTimeout(pushFrame,200);
+  }
+  pushFrame();
 }
 
 async function startFaceDetection(){
@@ -578,10 +622,11 @@ async function flagEvent(eventType,confidence,note=""){
 }
 
 function stopProctoring(){
-  clearTimeout(faceDetectTimer); clearInterval(audioLevelTimer);
+  clearTimeout(faceDetectTimer); clearTimeout(framePushTimer); clearInterval(audioLevelTimer);
   if(speechRec){try{speechRec.stop();}catch(e){}}
   if(audioCtx){audioCtx.close();audioCtx=null;}
   if(webcamStream){webcamStream.getTracks().forEach(t=>t.stop());webcamStream=null;}
+  fetch(API_BASE+"/proctor/clear_candidate",{method:"POST"}).catch(()=>{});
   document.getElementById("webcamBox").style.display="none";
 }
 window.addEventListener("beforeunload",stopProctoring);
@@ -595,7 +640,39 @@ let localStudents=[],localAuditLog=[],localSnapshots=[];
 function startTeacherDashboard(){
   function tick(){const n=new Date();document.getElementById("timer").textContent=pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds());}
   tick(); teacherTimerInt=setInterval(tick,1000);
+  // Start MJPEG live feed from server vision engine
+  startLiveFeed();
   refreshAll(); teacherPollInterval=setInterval(refreshAll,4000);
+}
+
+function startLiveFeed(){
+  const img = document.getElementById("liveFeedImg");
+  // Reload with cache-buster every 8s if offline (MJPEG stays alive when online)
+  function tryLoad(){img.src = API_BASE+"/proctor/video_feed?t="+Date.now();}
+  tryLoad();
+  setInterval(()=>{if(img.style.opacity<0.5) tryLoad();},8000);
+  // Poll /proctor/status for candidate name
+  async function pollStatus(){
+    try{
+      const r=await fetch(API_BASE+"/proctor/status");
+      const d=await r.json();
+      const lbl=document.getElementById("liveFeedLabel");
+      const st=document.getElementById("liveFeedStatus");
+      const badge=document.getElementById("liveFeedBadge");
+      if(d.student_name&&d.student_name!=="Unknown"){
+        lbl.textContent="🎓 "+d.student_name; lbl.style.color="#7ec8e3";
+        st.textContent=d.status_text||"Live";
+        badge.textContent="● Live"; badge.style.background="#1a3a1a"; badge.style.color="#27ae60";
+      }else{
+        lbl.textContent="No candidate"; lbl.style.color="#aaa";
+        st.textContent="Waiting for candidate…";
+        badge.textContent="Idle"; badge.style.background="#222"; badge.style.color="#666";
+      }
+    }catch(e){
+      document.getElementById("liveFeedBadge").textContent="Offline";
+    }
+  }
+  pollStatus(); setInterval(pollStatus,3000);
 }
 
 async function refreshAll(){await Promise.all([fetchStudents(),fetchAuditEvents(),fetchSnapshots()]);}
