@@ -44,9 +44,18 @@ app.config.update(
 #  Browser sends JPEG frames → we run MediaPipe → serve MJPEG
 # ═══════════════════════════════════════════════════════════════
 
-# MediaPipe face detector
-_mp_face = mp.solutions.face_detection
-face_detector = _mp_face.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+# MediaPipe face detector — lazy init to avoid crash on import in production
+_face_detector      = None
+_face_detector_lock = threading.Lock()
+
+def _get_face_detector():
+    global _face_detector
+    with _face_detector_lock:
+        if _face_detector is None:
+            _mp_face = mp.solutions.face_detection
+            _face_detector = _mp_face.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+    return _face_detector
+
 
 VISION_COOLDOWN = {"Face Not Detected": 8, "Multiple Faces": 8, "Phone Detected": 10}
 FRAME_TIMEOUT   = 10   # seconds — if no frame received, show placeholder
@@ -65,6 +74,10 @@ vision_state = {
     "output_frame":   None,   # annotated JPEG bytes for MJPEG
 }
 vision_lock = threading.Lock()
+
+# Detection thread — started lazily on first request
+_detection_thread_started = False
+_detection_thread_lock    = threading.Lock()
 
 
 def _make_placeholder(text="Waiting for candidate…"):
@@ -137,7 +150,7 @@ def _detection_loop():
             frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
             if frame is None:
                 raise ValueError("imdecode failed")
-        except Exception as e:
+        except Exception:
             time.sleep(0.05)
             continue
 
@@ -145,7 +158,7 @@ def _detection_loop():
         rgb   = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w  = frame.shape[:2]
 
-        results    = face_detector.process(rgb)
+        results    = _get_face_detector().process(rgb)
         face_count = 0
         face_bboxes = []
 
@@ -202,8 +215,20 @@ def _detection_loop():
 
         time.sleep(0.05)
 
-# Start detection thread when the app loads
-threading.Thread(target=_detection_loop, daemon=True).start()
+
+def _ensure_detection_thread():
+    """Start the detection thread once, safely, on first request."""
+    global _detection_thread_started
+    with _detection_thread_lock:
+        if not _detection_thread_started:
+            _detection_thread_started = True
+            threading.Thread(target=_detection_loop, daemon=True).start()
+
+
+@app.before_request
+def before_request():
+    _ensure_detection_thread()
+
 
 # ─── Vision routes ────────────────────────────────────────────
 
@@ -281,7 +306,7 @@ def proctor_ping():
 
 
 # ═══════════════════════════════════════════════════════════════
-#  SECTION 2 — EXAM PORTAL (unchanged from original app.py)
+#  SECTION 2 — EXAM PORTAL
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/")
