@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exam Login Portal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── SHARED ── */
+  .header {
+    background: #00529b;
+    color: white;
+    text-align: center;
+    padding: 14px 20px;
+  }
+  .header h1 { font-size: 18px; font-weight: bold; letter-spacing: 0.5px; }
+
+  .footer {
+    background: #00529b;
+    color: rgba(255,255,255,0.75);
+    text-align: center;
+    padding: 11px;
+    font-size: 12px;
+  }
+
+  /* ── LOGIN PAGE ── */
+  #loginPage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #loginPage main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 15px;
+  }
+
+  .login-card {
+    background: white;
+    border: 1px solid #ccc;
+    border-top: 4px solid #00529b;
+    width: 100%;
+    max-width: 360px;
+    padding: 36px 26px 50px;
+  }
+
+  .login-card h2 {
+    font-size: 15px;
+    color: #00529b;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    font-weight: bold;
+  }
+
+  .form-group { margin-bottom: 28px; }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+  }
+  .form-group label span { color: red; }
+
+  .form-group input[type="text"],
+  .form-group input[type="password"] {
+    width: 100%;
+    padding: 8px 9px;
+    border: 1px solid #aaa;
+    border-radius: 2px;
+    font-size: 13px;
+    color: #333;
+    outline: none;
+  }
+  .form-group input:focus { border-color: #00529b; }
+
+  .error-msg {
+    color: red;
+    font-size: 11px;
+    margin-top: 4px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  .btn-login {
+    width: 100%;
+    background: #00529b;
+    color: white;
+    border: none;
+    border-radius: 2px;
+    padding: 9px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+  .btn-login:hover { background: #003d73; }
+
+  /* ── INSTRUCTIONS PAGE ── */
+  #instructionsPage {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .instr-subheader {
+    background: #e8f0fb;
+    border-bottom: 1px solid #c5d5ea;
+    padding: 10px 24px;
+    font-size: 13px;
+    color: #00529b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .instr-subheader strong { color: #333; }
+
+  .instr-body {
+    max-width: 860px;
+    width: 100%;
+    margin: 26px auto 30px;
+    padding: 0 16px;
+    flex: 1;
+  }
+
+  .instr-card {
+    background: white;
+    border: 1px solid #ccc;
+    border-top: 4px solid #00529b;
+    padding: 28px 32px 26px;
+  }
+
+  .instr-card h2 {
+    font-size: 16px;
+    color: #00529b;
+    border-bottom: 2px solid #e8a000;
+    padding-bottom: 10px;
+    margin-bottom: 22px;
+  }
+
+  .instr-section { margin-bottom: 24px; }
+
+  .instr-section h3 {
+    font-size: 13px;
+    color: #fff;
+    background: #00529b;
+    padding: 7px 12px;
+    margin-bottom: 10px;
+    font-weight: bold;
+  }
+
+  .instr-section ul {
+    padding-left: 22px;
+    font-size: 13px;
+    color: #444;
+    line-height: 2.1;
+  }
+
+  /* Sections table */
+  .sections-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .sections-table th {
+    background: #00529b;
+    color: white;
+    padding: 9px 14px;
+    text-align: left;
+  }
+  .sections-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #e0e0e0;
+    color: #444;
+  }
+  .sections-table tr:nth-child(even) td { background: #f5f8ff; }
+
+  /* Marks table */
+  .marks-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .marks-table th {
+    background: #555;
+    color: white;
+    padding: 8px 14px;
+    text-align: left;
+  }
+  .marks-table td {
+    padding: 7px 14px;
+    border-bottom: 1px solid #e0e0e0;
+    color: #444;
+  }
+  .marks-table tr:nth-child(even) td { background: #fafafa; }
+
+  /* Agree row */
+  .agree-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #fff8e1;
+    border: 1px solid #f0c040;
+    padding: 14px 16px;
+    margin-top: 26px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.6;
+  }
+  .agree-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: #00529b;
+  }
+
+  .btn-start {
+    width: 100%;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 2px;
+    padding: 11px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 14px;
+    letter-spacing: 1px;
+    opacity: 0.35;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .btn-start.enabled { opacity: 1; pointer-events: all; }
+  .btn-start.enabled:hover { background: #1e7e34; }
+
+  /* hide utility */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ════════════ LOGIN PAGE ════════════ -->
+<div id="loginPage">
+
+  <div class="header">
+    <h1>Exam Login Portal</h1>
+  </div>
+
+  <main>
+    <div class="login-card">
+      <h2>Candidate Login</h2>
+
+      <form id="loginForm" novalidate>
+
+        <div class="form-group">
+          <label>Application Number <span>*</span></label>
+          <input type="text" id="appNo" placeholder="Enter Application Number" maxlength="14" autocomplete="off"/>
+          <div class="error-msg" id="appNoErr">Please enter your application number.</div>
+        </div>
+
+        <div class="form-group">
+          <label>Password <span>*</span></label>
+          <input type="password" id="password" placeholder="Enter Password"/>
+          <div class="error-msg" id="passErr">Please enter your password.</div>
+        </div>
+
+        <button type="submit" class="btn-login">LOGIN</button>
+
+      </form>
+    </div>
+  </main>
+
+  <div class="footer">
+    Powered by &nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="2" style="vertical-align:middle;margin-right:3px"><path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>The Vision
+  </div>
+
+</div>
+
+
+<!-- ════════════ INSTRUCTIONS PAGE ════════════ -->
+<div id="instructionsPage">
+
+  <div class="header">
+    <h1>Exam Login Portal</h1>
+  </div>
+
+  <div class="instr-subheader">
+    <span>Welcome, <strong id="candidateName">Candidate</strong></span>
+    <span>JEE (Main) 2026 &nbsp;|&nbsp; Paper 1 (B.E. / B.Tech)</span>
+  </div>
+
+  <div class="instr-body">
+    <div class="instr-card">
+
+      <h2>&#128203; General Instructions</h2>
+
+      <!-- Section 1 -->
+      <div class="instr-section">
+        <h3>Exam Overview</h3>
+        <ul>
+          <li>The exam consists of <strong>3 subjects</strong> — Physics, Chemistry, and Mathematics.</li>
+          <li>Each subject carries <strong>25 questions</strong> and <strong>100 marks</strong>.</li>
+          <li>Total number of questions: <strong>75</strong> &nbsp;|&nbsp; Total marks: <strong>300</strong>.</li>
+          <li>Total duration of the exam is <strong>3 Hours (180 minutes)</strong>.</li>
+        </ul>
+      </div>
+
+      <!-- Section 2 -->
+      <div class="instr-section">
+        <h3>Question Paper Pattern</h3>
+        <ul>
+          <li>The question paper consists of <strong>3 sections</strong> — Physics, Chemistry, and Mathematics.</li>
+          <li>Each section has <strong>25 questions</strong>: 20 MCQ (Single Correct) + 5 Numerical Value questions.</li>
+          <li>For MCQ questions, each question has <strong>4 options</strong> with only one correct answer.</li>
+          <li>For Numerical questions, the answer is a <strong>non-negative integer</strong> to be entered using the virtual keyboard.</li>
+          <li>Total duration of the exam is <strong>3 hours (180 minutes)</strong>.</li>
+        </ul>
+      </div>
+
+      <!-- Section 3 -->
+      <div class="instr-section">
+        <h3>Marking Scheme</h3>
+        <ul>
+          <li>For MCQ (Single Correct) questions: <strong>+4 marks</strong> for a correct answer and <strong>−1 mark</strong> for a wrong answer.</li>
+          <li>For Numerical Value questions: <strong>+4 marks</strong> for a correct answer and <strong>no negative marking</strong> for a wrong answer.</li>
+          <li>No marks are deducted for unattempted questions in either type.</li>
+        </ul>
+      </div>
+
+      <!-- Section 4 -->
+      <div class="instr-section">
+        <h3>General Guidelines</h3>
+        <ul>
+          <li>Do <strong>not</strong> close or refresh the browser window during the exam.</li>
+          <li>The clock on the top right shows the remaining time. The exam will <strong>auto-submit</strong> when time is up.</li>
+          <li>You can navigate between questions freely using the Question Palette on the right.</li>
+          <li>Use <strong>"Mark for Review"</strong> to revisit a question later. Marked questions will still be evaluated.</li>
+          <li>To change an answer, simply click a different option. To deselect, click <strong>"Clear Response"</strong>.</li>
+          <li>Questions are colour-coded in the palette: <strong>Green</strong> = Answered, <strong>Red</strong> = Not Answered, <strong>Purple</strong> = Marked for Review.</li>
+          <li>You can switch between sections at any time during the exam.</li>
+        </ul>
+      </div>
+
+      <!-- Section 5 -->
+      <div class="instr-section">
+        <h3>Important Rules</h3>
+        <ul>
+          <li>Use of calculators, mobile phones, smartwatches, or any electronic devices is <strong>strictly prohibited</strong>.</li>
+          <li>Rough work should be done on the rough sheet provided at the exam centre only.</li>
+          <li>Any malpractice or unfair means will lead to <strong>immediate cancellation</strong> of candidature.</li>
+          <li>Do not leave the exam hall without the invigilator's permission.</li>
+          <li>Your responses are automatically saved. There is <strong>no separate save button</strong>.</li>
+        </ul>
+      </div>
+
+      <!-- Agree checkbox -->
+      <div class="agree-row">
+        <input type="checkbox" id="agreeCheck"/>
+        <label for="agreeCheck">
+          I have read and understood all the instructions mentioned above. I agree to abide by the rules and regulations of the examination. I confirm that I will not indulge in any unfair means during the examination.
+        </label>
+      </div>
+
+      <button class="btn-start" id="btnStart">START EXAM &#10140;</button>
+
+    </div>
+  </div>
+
+  <div class="footer">
+    Powered by &nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="2" style="vertical-align:middle;margin-right:3px"><path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg> The Vision
+  </div>
+
+</div>
+
+
+<script>
+  function show(id) { document.getElementById(id).classList.add('show'); }
+  function hide(id) { document.getElementById(id).classList.remove('show'); }
+
+  // Login form
+  document.getElementById('loginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    let valid = true;
+
+    const appNo = document.getElementById('appNo').value.trim();
+    const pass  = document.getElementById('password').value.trim();
+
+    if (!appNo) { show('appNoErr'); valid = false; } else hide('appNoErr');
+    if (!pass)  { show('passErr');  valid = false; } else hide('passErr');
+
+    if (valid) {
+      // Show candidate app number in instructions header
+      document.getElementById('candidateName').textContent = appNo;
+      // Switch pages
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('instructionsPage').style.display = 'flex';
+    }
+  });
+
+  ['appNo','password'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function() {
+      const map = { appNo:'appNoErr', password:'passErr' };
+      hide(map[id]);
+    });
+  });
+
+  // Agree checkbox enables Start Exam button
+  document.getElementById('agreeCheck').addEventListener('change', function() {
+    const btn = document.getElementById('btnStart');
+    if (this.checked) btn.classList.add('enabled');
+    else btn.classList.remove('enabled');
+  });
+
+  // Start exam button (placeholder)
+  document.getElementById('btnStart').addEventListener('click', function() {
+    alert('Exam Starting... (connect your exam page here)');
+  });
+</script>
+</body>
+</html>
