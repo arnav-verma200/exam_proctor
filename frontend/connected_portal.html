@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Exam Portal — AI Proctored</title>
+
+<!-- face-api.js: TensorFlow face detection entirely in the browser -->
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:Arial,sans-serif; background:#f2f2f2; min-height:100vh; display:flex; flex-direction:column; }
@@ -22,14 +26,14 @@ body { font-family:Arial,sans-serif; background:#f2f2f2; min-height:100vh; displ
 #toast.error-toast { background:#c0392b; }
 #toast.success-toast { background:#27ae60; }
 #toast.warn-toast { background:#e67e22; }
+/* LOGIN */
 #loginPage main { flex:1; display:flex; align-items:center; justify-content:center; padding:30px 15px; }
 .login-card { background:white; border:1px solid #ccc; border-top:4px solid #00529b; width:100%; max-width:380px; padding:36px 26px 40px; }
 .login-card h2 { font-size:15px; color:#00529b; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:20px; font-weight:bold; }
 .tab-row { display:flex; margin-bottom:20px; border-bottom:2px solid #eee; }
 .tab { flex:1; padding:8px; text-align:center; font-size:13px; font-weight:bold; cursor:pointer; color:#888; border-bottom:2px solid transparent; margin-bottom:-2px; }
 .tab.active { color:#00529b; border-bottom-color:#00529b; }
-.tab-panel { display:none; }
-.tab-panel.active { display:block; }
+.tab-panel { display:none; } .tab-panel.active { display:block; }
 .form-group { margin-bottom:18px; }
 .form-group label { display:block; font-size:12px; font-weight:bold; color:#333; margin-bottom:5px; }
 .form-group label span { color:red; }
@@ -40,9 +44,9 @@ body { font-family:Arial,sans-serif; background:#f2f2f2; min-height:100vh; displ
 .btn-login { width:100%; background:#00529b; color:white; border:none; border-radius:2px; padding:9px; font-size:14px; font-weight:bold; cursor:pointer; letter-spacing:1px; }
 .btn-login:hover { background:#003d73; }
 .api-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 8px; border-radius:99px; font-weight:600; }
-.api-badge.live { background:#e9f7ef; color:#27ae60; }
-.api-badge.local { background:#fef9e7; color:#e67e22; }
+.api-badge.live { background:#e9f7ef; color:#27ae60; } .api-badge.local { background:#fef9e7; color:#e67e22; }
 .api-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+/* INSTRUCTIONS */
 #instructionsPage .instr-subheader { background:#e8f0fb; border-bottom:1px solid #c5d5ea; padding:10px 24px; font-size:13px; color:#00529b; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
 #instructionsPage .instr-subheader strong { color:#333; }
 .instr-body { max-width:860px; width:100%; margin:26px auto 30px; padding:0 16px; flex:1; }
@@ -56,36 +60,33 @@ body { font-family:Arial,sans-serif; background:#f2f2f2; min-height:100vh; displ
 .btn-start { width:100%; background:#28a745; color:white; border:none; border-radius:2px; padding:11px; font-size:14px; font-weight:bold; cursor:pointer; margin-top:14px; letter-spacing:1px; opacity:0.35; pointer-events:none; transition:opacity 0.2s; }
 .btn-start.enabled { opacity:1; pointer-events:all; }
 .btn-start.enabled:hover { background:#1e7e34; }
+/* WEBCAM BOX */
 #webcamBox { position:fixed; bottom:20px; right:20px; background:#000; border:2px solid #00529b; border-radius:8px; overflow:hidden; width:220px; height:165px; display:none; z-index:500; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
 #studentVideo { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:block; }
 #faceCanvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; transform:scaleX(-1); }
 #webcamOverlay { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:white; font-size:10px; padding:4px 8px; display:flex; align-items:center; justify-content:space-between; }
 #procDot { width:7px; height:7px; border-radius:50%; background:#27ae60; display:inline-block; margin-right:4px; animation:blink 1.2s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+/* TEACHER */
 #teacherPage { background:#f0f2f5; }
 .teacher-header { background:white; border-bottom:1px solid #ddd; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:10; flex-wrap:wrap; gap:8px; }
 .teacher-header h2 { font-size:15px; }
 #timer { font-size:18px; font-weight:bold; color:#00529b; }
 .btn { padding:6px 14px; border-radius:4px; cursor:pointer; font-size:13px; border:1px solid #ccc; background:white; margin-left:6px; }
-.btn-red { border-color:red; color:red; }
-.btn-dark { background:#333; color:white; border-color:#333; }
-.btn-blue { background:#00529b; color:white; border-color:#00529b; }
+.btn-red { border-color:red; color:red; } .btn-dark { background:#333; color:white; border-color:#333; } .btn-blue { background:#00529b; color:white; border-color:#00529b; }
 .stats { display:flex; gap:10px; padding:12px 20px; flex-wrap:wrap; }
 .stat { background:white; border:1px solid #ddd; border-radius:8px; padding:12px 16px; flex:1; min-width:90px; text-align:center; }
 .stat .label { font-size:11px; color:#888; margin-bottom:4px; }
 .stat .value { font-size:22px; font-weight:bold; }
 .red{color:#e74c3c;} .orange{color:#e67e22;} .green{color:#27ae60;} .blue{color:#00529b;}
-.t-page { display:none; padding:0 20px 20px; }
-.t-page.active { display:block; }
+.t-page { display:none; padding:0 20px 20px; } .t-page.active { display:block; }
 .layout { display:flex; gap:16px; align-items:flex-start; }
-.t-left { flex:0 0 58%; }
-.t-right { flex:1; position:sticky; top:70px; }
+.t-left { flex:0 0 60%; } .t-right { flex:1; position:sticky; top:70px; }
 .section-title { font-size:14px; font-weight:bold; margin-bottom:10px; color:#555; }
 .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px; }
 .card { background:white; border:1px solid #ddd; border-radius:8px; overflow:hidden; transition:box-shadow 0.2s; }
 .card:hover { box-shadow:0 2px 10px rgba(0,0,0,0.1); }
-.card.warn { border-left:3px solid #f0ad4e; }
-.card.danger { border-left:3px solid #e74c3c; }
+.card.warn { border-left:3px solid #f0ad4e; } .card.danger { border-left:3px solid #e74c3c; }
 .card-body { padding:10px 12px; }
 .card-name { font-size:12px; font-weight:bold; margin-bottom:6px; color:#222; }
 .card-badge { display:inline-block; font-size:10px; padding:2px 8px; border-radius:99px; font-weight:600; margin-bottom:4px; }
@@ -96,22 +97,10 @@ body { font-family:Arial,sans-serif; background:#f2f2f2; min-height:100vh; displ
 table { width:100%; border-collapse:collapse; }
 th { font-size:11px; color:#888; text-transform:uppercase; padding:8px 14px; text-align:left; background:#fafafa; border-bottom:1px solid #eee; }
 td { padding:8px 14px; font-size:13px; border-bottom:1px solid #eee; vertical-align:middle; }
-tr:last-child td { border-bottom:none; }
-tr:hover td { background:#fafafa; }
+tr:last-child td { border-bottom:none; } tr:hover td { background:#fafafa; }
 .filter-bar { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
 .filter-bar input, .filter-bar select { padding:7px 12px; border:1px solid #ddd; border-radius:4px; font-size:13px; }
 .filter-bar input { flex:1; min-width:180px; }
-#evidenceModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9990; align-items:center; justify-content:center; }
-#evidenceModal.show { display:flex; }
-.modal-box { background:white; border-radius:10px; padding:24px; max-width:720px; width:92%; max-height:88vh; overflow-y:auto; }
-.modal-box h3 { font-size:16px; color:#00529b; margin-bottom:16px; border-bottom:2px solid #e8a000; padding-bottom:10px; }
-.evidence-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
-.ev-card { border:1px solid #ddd; border-radius:6px; overflow:hidden; cursor:pointer; transition:transform 0.15s; }
-.ev-card:hover { transform:scale(1.02); box-shadow:0 2px 12px rgba(0,0,0,0.15); }
-.ev-card-info { padding:8px; font-size:11px; color:#555; background:#f9f9f9; }
-.ev-card-type { font-weight:bold; color:#e74c3c; }
-.ev-card-time { color:#999; font-size:10px; }
-.modal-close { float:right; cursor:pointer; background:#eee; border:none; padding:4px 10px; border-radius:4px; font-size:13px; }
 .chart-row { display:flex; gap:12px; padding:0 20px 16px; flex-wrap:wrap; }
 .chart-box { background:white; border:1px solid #ddd; border-radius:8px; padding:14px; flex:1; min-width:220px; }
 .chart-box h4 { font-size:12px; color:#666; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px; }
@@ -121,15 +110,22 @@ tr:hover td { background:#fafafa; }
 .bar-fill { height:100%; border-radius:5px; background:#e74c3c; transition:width 0.4s; }
 .bar-fill.warn { background:#f0ad4e; }
 .bar-count { width:24px; text-align:right; color:#888; font-size:11px; }
-.evidence-vault { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; padding:0 0 20px; }
-/* Live Feed Panel */
-.live-feed-panel { background:white; border:1px solid #ddd; border-radius:8px; overflow:hidden; margin-bottom:14px; }
-.live-feed-header { background:#111; color:white; padding:10px 14px; font-size:13px; font-weight:bold; display:flex; align-items:center; gap:8px; justify-content:space-between; }
-.live-dot { width:9px; height:9px; border-radius:50%; background:#e74c3c; display:inline-block; animation:blink 1s infinite; flex-shrink:0; }
-#liveFeedImg { width:100%; max-height:300px; object-fit:cover; display:block; background:#111; }
-.live-feed-footer { padding:8px 14px; background:#1a1a1a; color:#aaa; font-size:11px; display:flex; justify-content:space-between; align-items:center; }
-.live-status-badge { padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
-.card-live-btn { font-size:10px; padding:2px 7px; border:1px solid #e74c3c; background:#fdedec; color:#e74c3c; border-radius:3px; cursor:pointer; }
+.snap-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; margin-top:0; }
+.snap-card { border:1px solid #ddd; border-radius:6px; overflow:hidden; background:#111; cursor:pointer; transition:transform 0.15s; }
+.snap-card:hover { transform:scale(1.02); }
+.snap-card img { width:100%; height:100px; object-fit:cover; display:block; }
+.snap-info { padding:6px 8px; background:#1a1a1a; color:#aaa; font-size:10px; }
+.snap-flag { color:#e74c3c; font-weight:bold; }
+#evidenceModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9990; align-items:center; justify-content:center; }
+#evidenceModal.show { display:flex; }
+.modal-box { background:white; border-radius:10px; padding:24px; max-width:760px; width:92%; max-height:88vh; overflow-y:auto; }
+.modal-box h3 { font-size:16px; color:#00529b; margin-bottom:16px; border-bottom:2px solid #e8a000; padding-bottom:10px; }
+.modal-close { float:right; cursor:pointer; background:#eee; border:none; padding:4px 10px; border-radius:4px; font-size:13px; }
+.evidence-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+.ev-card { border:1px solid #ddd; border-radius:6px; overflow:hidden; }
+.ev-card-info { padding:8px; font-size:11px; color:#555; background:#f9f9f9; }
+.ev-card-type { font-weight:bold; color:#e74c3c; }
+.ev-card-time { color:#999; font-size:10px; }
 </style>
 </head>
 <body>
@@ -137,18 +133,17 @@ tr:hover td { background:#fafafa; }
 <div id="spinner"><div class="spinner-box"><div class="spin"></div>Please wait…</div></div>
 <div id="toast"></div>
 
-<!-- Evidence Modal -->
 <div id="evidenceModal">
   <div class="modal-box">
     <button class="modal-close" onclick="closeEvidence()">✕ Close</button>
-    <h3 id="modalTitle">🎥 Evidence Clips</h3>
+    <h3 id="modalTitle">📸 Snapshot Evidence</h3>
     <p id="modalMeta" style="font-size:12px;color:#888;margin-bottom:14px"></p>
     <div class="evidence-grid" id="evidenceGrid"></div>
   </div>
 </div>
 
 
-<!-- ══════════ PAGE 1 — LOGIN ══════════ -->
+<!-- ══════════ PAGE 1: LOGIN ══════════ -->
 <div id="loginPage" class="page active">
   <div class="header"><h1>📝 AI Proctored Exam Portal</h1></div>
   <main>
@@ -198,7 +193,7 @@ tr:hover td { background:#fafafa; }
 </div>
 
 
-<!-- ══════════ PAGE 2 — INSTRUCTIONS ══════════ -->
+<!-- ══════════ PAGE 2: INSTRUCTIONS ══════════ -->
 <div id="instructionsPage" class="page">
   <div class="header"><h1>📝 AI Proctored Exam Portal</h1></div>
   <div class="instr-subheader">
@@ -206,23 +201,17 @@ tr:hover td { background:#fafafa; }
     <span>JEE (Main) 2026 &nbsp;|&nbsp; Paper 1 (B.E./B.Tech)</span>
     <span style="display:flex;align-items:center;gap:6px;font-size:12px">
       <span id="camDot" style="width:8px;height:8px;border-radius:50%;background:#aaa;display:inline-block"></span>
-      <span id="camText">Initialising camera…</span>
+      <span id="camText">Initialising AI…</span>
     </span>
   </div>
 
-  <!-- Student webcam preview — served by proctor.py via MJPEG -->
+  <!-- Floating webcam preview box -->
   <div id="webcamBox">
-    <img id="visionFeed" src="" alt="Proctor Feed"
-         style="width:100%;height:100%;object-fit:cover;display:block;border:none"
-         onerror="this.style.display='none';document.getElementById('visionOffline').style.display='flex'"/>
-    <div id="visionOffline" style="display:none;width:100%;height:100%;background:#111;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#aaa;font-size:11px;">
-      <span style="font-size:22px">📷</span>
-      <span>Vision offline</span>
-      <span style="font-size:10px">Start proctor.py</span>
-    </div>
+    <video id="studentVideo" autoplay muted playsinline></video>
+    <canvas id="faceCanvas"></canvas>
     <div id="webcamOverlay">
       <span><span id="procDot"></span>🔴 AI Proctoring</span>
-      <span id="faceStatus" style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.15)">Connecting…</span>
+      <span id="faceStatus" style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.15)">Loading models…</span>
     </div>
   </div>
 
@@ -239,17 +228,16 @@ tr:hover td { background:#fafafa; }
       <div class="instr-section">
         <h3>Marking Scheme</h3>
         <ul>
-          <li>MCQ: <strong>+4 correct</strong>, <strong>−1 wrong</strong> &nbsp;&nbsp; Numerical: <strong>+4 correct</strong>, no penalty</li>
+          <li>MCQ: <strong>+4 correct</strong>, <strong>−1 wrong</strong> &nbsp;&nbsp;&nbsp; Numerical: <strong>+4 correct</strong>, no penalty</li>
         </ul>
       </div>
       <div class="instr-section">
         <h3>⚠ AI Proctoring Active — You Are Being Monitored</h3>
         <ul>
           <li>Your <strong>webcam and microphone</strong> are active throughout the exam.</li>
-          <li>AI automatically detects: face absence, multiple faces, mobile phones, suspicious audio/speech.</li>
-          <li>All flagged incidents are <strong>recorded as 5-second video clips</strong> and stored as evidence.</li>
+          <li>AI running in your browser detects: face absence, multiple faces, suspicious audio and speech keywords.</li>
+          <li>A <strong>snapshot is automatically captured</strong> and sent to your invigilator when a violation is detected.</li>
           <li>Do <strong>not</strong> switch tabs, minimize the window, or speak during the exam.</li>
-          <li>Flagged audio keywords include: help, answer, copy, Google, Alexa, and similar phrases.</li>
         </ul>
       </div>
       <div class="instr-section">
@@ -261,16 +249,16 @@ tr:hover td { background:#fafafa; }
       </div>
       <div class="agree-row">
         <input type="checkbox" id="agreeCheck"/>
-        <label for="agreeCheck">I understand that I am being AI-monitored. I agree to all rules and will not engage in any unfair means during the examination.</label>
+        <label for="agreeCheck">I understand that I am being AI-monitored via my webcam in real time. I agree to all rules and will not engage in any unfair means during the examination.</label>
       </div>
       <button class="btn-start" id="btnStart">START EXAM →</button>
     </div>
   </div>
-  <div class="footer">Powered by The Vision | AI Proctoring Active</div>
+  <div class="footer">Powered by The Vision | Browser AI Proctoring Active</div>
 </div>
 
 
-<!-- ══════════ PAGE 3 — TEACHER DASHBOARD ══════════ -->
+<!-- ══════════ PAGE 3: TEACHER DASHBOARD ══════════ -->
 <div id="teacherPage" class="page">
   <div class="teacher-header">
     <h2>🎓 Proctor Dashboard — JEE Main 2026</h2>
@@ -280,7 +268,7 @@ tr:hover td { background:#fafafa; }
       <button class="btn btn-blue" onclick="refreshAll()">↻ Refresh</button>
       <button class="btn btn-dark" onclick="switchTeacherView('dash')">📊 Dashboard</button>
       <button class="btn btn-dark" onclick="switchTeacherView('audit')">📋 Audit Log</button>
-      <button class="btn btn-dark" onclick="switchTeacherView('evidence')">🎥 Evidence Vault</button>
+      <button class="btn btn-dark" onclick="switchTeacherView('snapshots')">📸 Snapshots</button>
       <button class="btn btn-red" onclick="teacherLogout()">Logout</button>
     </div>
   </div>
@@ -290,7 +278,7 @@ tr:hover td { background:#fafafa; }
     <div class="stat"><div class="label">High Risk 🔴</div><div class="value red" id="s-flagged">0</div></div>
     <div class="stat"><div class="label">Warnings 🟠</div><div class="value orange" id="s-warnings">0</div></div>
     <div class="stat"><div class="label">Events</div><div class="value" id="s-events">0</div></div>
-    <div class="stat"><div class="label">Clips Saved 🎥</div><div class="value blue" id="s-clips">0</div></div>
+    <div class="stat"><div class="label">📸 Snapshots</div><div class="value blue" id="s-snaps">0</div></div>
   </div>
 
   <!-- DASHBOARD -->
@@ -306,29 +294,8 @@ tr:hover td { background:#fafafa; }
           <div class="grid" id="studentGrid"><div style="color:#aaa;font-size:13px;padding:20px">No candidates online yet.</div></div>
         </div>
         <div class="t-right">
-          <!-- Live Camera Feed from proctor.py -->
-          <div class="live-feed-panel" style="margin-bottom:14px">
-            <div class="live-feed-header">
-              <span style="display:flex;align-items:center;gap:8px"><span class="live-dot"></span>🎥 Live Camera Feed</span>
-              <span id="liveFeedCandidate" style="font-size:11px;color:#aaa;font-weight:normal">No candidate active</span>
-            </div>
-            <div style="position:relative;background:#111;min-height:180px;display:flex;align-items:center;justify-content:center">
-              <img id="liveFeedImg" src="" alt="Live Feed"
-                   onerror="handleFeedError()" onload="handleFeedLoad()"
-                   style="width:100%;max-height:280px;object-fit:cover;display:block;background:#111"/>
-              <div id="liveFeedOffline" style="display:none;position:absolute;inset:0;background:#111;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#666;font-size:12px;flex-direction:column">
-                <span style="font-size:28px">📷</span>
-                <span>Proctor engine offline</span>
-                <span style="font-size:10px">Start proctor.py to see live feed</span>
-              </div>
-            </div>
-            <div class="live-feed-footer">
-              <span id="liveFeedStatus" style="color:#666">Connecting to proctor.py…</span>
-              <span id="liveFeedBadge" class="live-status-badge" style="background:#222;color:#666">Offline</span>
-            </div>
-          </div>
           <div class="panel">
-            <div class="panel-header">⚠️ Latest Flags <span style="font-size:11px;color:#27ae60;font-weight:normal;animation:blink 1.5s infinite" id="liveInd">● Live</span></div>
+            <div class="panel-header">⚠️ Latest Flags <span style="font-size:11px;color:#27ae60;font-weight:normal;animation:blink 1.5s infinite">● Live</span></div>
             <table>
               <thead><tr><th>Time</th><th>Student</th><th>Event</th></tr></thead>
               <tbody id="latestBody"><tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No flags yet.</td></tr></tbody>
@@ -347,7 +314,6 @@ tr:hover td { background:#fafafa; }
         <option value="">All Event Types</option>
         <option>Face Not Detected</option>
         <option>Multiple Faces</option>
-        <option>Phone Detected</option>
         <option>Audio Detected</option>
         <option>Tab Switch</option>
         <option>Browser Blur</option>
@@ -356,568 +322,407 @@ tr:hover td { background:#fafafa; }
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th>Time</th><th>Student</th><th>Event</th><th>Confidence</th><th>Impact</th><th>Note</th><th>Evidence</th></tr></thead>
-        <tbody id="auditBody"><tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px">No events yet.</td></tr></tbody>
+        <thead><tr><th>Time</th><th>Student</th><th>Event</th><th>Confidence</th><th>Impact</th><th>Note</th></tr></thead>
+        <tbody id="auditBody"><tr><td colspan="6" style="text-align:center;color:#aaa;padding:30px">No events yet.</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- EVIDENCE VAULT -->
-  <div id="t-evidence" class="t-page">
+  <!-- SNAPSHOTS -->
+  <div id="t-snapshots" class="t-page">
     <div class="filter-bar">
-      <input type="text" id="evSearch" placeholder="🔍 Filter by student…" oninput="renderEvidenceView()">
-      <select id="evType" onchange="renderEvidenceView()">
+      <input type="text" id="snapSearch" placeholder="🔍 Filter by student…" oninput="renderSnapshotView()">
+      <select id="snapType" onchange="renderSnapshotView()">
         <option value="">All Types</option>
         <option>Face Not Detected</option>
         <option>Multiple Faces</option>
-        <option>Phone Detected</option>
         <option>Audio Detected</option>
         <option>Tab Switch</option>
       </select>
     </div>
-    <div class="evidence-vault" id="evidenceVault">
-      <div style="color:#aaa;font-size:13px;padding:20px">No evidence clips saved yet. Clips are saved automatically when a violation is detected.</div>
+    <div class="snap-grid" id="snapGrid">
+      <div style="color:#aaa;font-size:13px;padding:20px;grid-column:1/-1">Snapshots auto-appear here when violations are detected.</div>
     </div>
   </div>
-
 </div>
 
 
 <script>
-/* ─── CONFIG ─── */
-// Auto-detect backend origin so the app works on any deployment URL
-// without changing this file.  For local dev with split ports (5000/5001)
-// set VITE_API_BASE / VITE_VISION_BASE env vars, otherwise same-origin is used.
-const API_BASE    = window.location.origin;   // same-origin → no CORS needed
-const VISION_BASE = window.location.origin;   // proctor stream via /video_feed proxy
-const APPWRITE = {
-  endpoint:  "https://fra.cloud.appwrite.io/v1",
-  projectId: "69a1413700343030d7f6",
-  bucketId:  "69a19b3d000c21c9bd5f",
-};
+/* ═══════════════════════════════════════════════════════
+   CONFIG — auto-detects deployment URL, works everywhere
+═══════════════════════════════════════════════════════ */
+const API_BASE = window.location.origin;
+
 const FLAGGED_KEYWORDS = [
   "answer","solution","help me","tell me","what is","copy","cheat",
   "share screen","hey google","hey siri","alexa","ok google",
   "pass","question","listen","hey","psst","whisper"
 ];
 
-/* ─── UI HELPERS ─── */
-function showPage(id) { document.querySelectorAll(".page").forEach(p=>p.classList.remove("active")); document.getElementById(id).classList.add("active"); }
-function spinner(on) { document.getElementById("spinner").classList.toggle("show",on); }
-function toast(msg,type="") { const t=document.getElementById("toast"); t.textContent=msg; t.className="show"+(type?" "+type+"-toast":""); clearTimeout(t._t); t._t=setTimeout(()=>t.className="",3500); }
-function showErr(id,msg) { const el=document.getElementById(id); el.textContent=msg||""; el.style.display=msg?"block":"none"; }
-function hideErr(id) { showErr(id,""); }
-function pad(n) { return String(n).padStart(2,"0"); }
+/* ═══ UI HELPERS ═══ */
+function showPage(id){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(id).classList.add("active");}
+function spinner(on){document.getElementById("spinner").classList.toggle("show",on);}
+function toast(msg,type=""){const t=document.getElementById("toast");t.textContent=msg;t.className="show"+(type?" "+type+"-toast":"");clearTimeout(t._t);t._t=setTimeout(()=>t.className="",3500);}
+function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg||"";el.style.display=msg?"block":"none";}
+function hideErr(id){showErr(id,"");}
+function pad(n){return String(n).padStart(2,"0");}
 
-/* ─── API CHECK ─── */
-(async function() {
-  try {
-    const r = await fetch(API_BASE+"/api/exam/info",{credentials:"include"});
-    const b = document.getElementById("apiStatusBadge");
-    if(r.ok){ b.className="api-badge live"; b.innerHTML='<span class="api-dot"></span>API Connected'; }
-  } catch{ const b=document.getElementById("apiStatusBadge"); b.className="api-badge local"; b.innerHTML='<span class="api-dot"></span>No Backend'; }
+/* API health check */
+(async()=>{
+  try{const r=await fetch(API_BASE+"/api/exam/info",{credentials:"include"});const b=document.getElementById("apiStatusBadge");if(r.ok){b.className="api-badge live";b.innerHTML='<span class="api-dot"></span>API Connected';}}catch{const b=document.getElementById("apiStatusBadge");b.className="api-badge local";b.innerHTML='<span class="api-dot"></span>No Backend';}
 })();
 
-/* ─── TAB SWITCH ─── */
-function switchTab(n) {
+function switchTab(n){
   document.querySelectorAll(".tab").forEach((t,i)=>t.classList.toggle("active",(i===0)===(n==="candidate")));
   document.getElementById("tab-candidate").classList.toggle("active",n==="candidate");
   document.getElementById("tab-teacher").classList.toggle("active",n==="teacher");
 }
 
-/* ─── CANDIDATE LOGIN ─── */
+/* ═══════════════════════════════════════════════════════
+   CANDIDATE LOGIN
+═══════════════════════════════════════════════════════ */
 document.getElementById("loginForm").addEventListener("submit",async function(e){
-  e.preventDefault(); hideErr("appNoErr"); hideErr("passErr"); showErr("loginApiErr","");
+  e.preventDefault();hideErr("appNoErr");hideErr("passErr");showErr("loginApiErr","");
   const appNo=document.getElementById("appNo").value.trim();
   const pass=document.getElementById("password").value.trim();
-  if(!appNo){showErr("appNoErr","Please enter your application number."); return;}
-  if(!pass){showErr("passErr","Please enter your password."); return;}
+  if(!appNo){showErr("appNoErr","Please enter your application number.");return;}
+  if(!pass){showErr("passErr","Please enter your password.");return;}
   spinner(true);
-  try {
+  try{
     const res=await fetch(API_BASE+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({app_number:appNo,password:pass})});
     const data=await res.json();
     if(!res.ok) throw new Error(data.message||"Login failed");
-
-    // Store candidate info so the new window can pick it up
-    const payload = JSON.stringify({
-      app_number: data.candidate.app_number,
-      name:       data.candidate.name,
-      exam:       data.exam,
-      ts:         Date.now()
-    });
-    localStorage.setItem("candidateSession", payload);
-
-    // Open candidate exam in a new window and keep login portal untouched
-    const examWin = window.open(window.location.href, "_blank",
-      "width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
-    if(!examWin || examWin.closed || typeof examWin.closed==="undefined"){
-      // Popup blocked — fallback: navigate in same tab
-      currentAppNumber   = data.candidate.app_number;
-      currentStudentName = data.candidate.name;
-      document.getElementById("candidateName").textContent = data.candidate.name;
-      showPage("instructionsPage");
-      initProctoring(data.candidate.app_number);
-    } else {
-      // Reset login form so portal is ready for next candidate
-      document.getElementById("loginForm").reset();
-      showErr("loginApiErr","");
-      // Show a non-intrusive confirmation on the login page
-      toast("✅ Exam window opened for "+data.candidate.name,"success");
-    }
-  } catch(err){ showErr("loginApiErr",err.message); }
-  finally { spinner(false); }
+    localStorage.setItem("candidateSession",JSON.stringify({app_number:data.candidate.app_number,name:data.candidate.name,exam:data.exam,ts:Date.now()}));
+    const examWin=window.open(window.location.href,"_blank","width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+    if(!examWin||examWin.closed){
+      currentAppNumber=data.candidate.app_number;currentStudentName=data.candidate.name;
+      document.getElementById("candidateName").textContent=data.candidate.name;
+      showPage("instructionsPage");initProctoring(data.candidate.app_number,data.candidate.name);
+    }else{document.getElementById("loginForm").reset();toast("✅ Exam window opened for "+data.candidate.name,"success");}
+  }catch(err){showErr("loginApiErr",err.message);}
+  finally{spinner(false);}
 });
 
-/* ─── INSTRUCTIONS ─── */
 document.getElementById("agreeCheck").addEventListener("change",function(){
   document.getElementById("btnStart").classList.toggle("enabled",this.checked);
 });
 document.getElementById("btnStart").addEventListener("click",async function(){
   spinner(true);
-  try {
+  try{
     const res=await fetch(API_BASE+"/api/exam/start",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({agreed:true})});
     const data=await res.json();
     if(!res.ok) throw new Error(data.message||"Could not start exam.");
     toast("Exam started! AI monitoring is active.","success");
-    setTimeout(()=>alert("✅ Exam started!\n\nAI proctoring is running.\nDo NOT switch tabs or speak aloud.\n\nConnect your exam questions page here."),300);
-  } catch(err){ toast(err.message,"error"); }
-  finally { spinner(false); }
+    setTimeout(()=>alert("✅ Exam started!\n\nAI proctoring is running in your browser.\nDo NOT switch tabs or speak aloud."),300);
+  }catch(err){toast(err.message,"error");}
+  finally{spinner(false);}
 });
 
-/* ─── TEACHER LOGIN ─── */
+/* ═══════════════════════════════════════════════════════
+   TEACHER LOGIN
+═══════════════════════════════════════════════════════ */
 document.getElementById("teacherLoginForm").addEventListener("submit",async function(e){
-  e.preventDefault(); hideErr("teacherUserErr"); hideErr("teacherPassErr"); showErr("teacherApiErr","");
+  e.preventDefault();hideErr("teacherUserErr");hideErr("teacherPassErr");showErr("teacherApiErr","");
   const user=document.getElementById("teacherUser").value.trim();
   const pass=document.getElementById("teacherPass").value.trim();
-  if(!user){showErr("teacherUserErr","Please enter your username."); return;}
-  if(!pass){showErr("teacherPassErr","Please enter your password."); return;}
+  if(!user){showErr("teacherUserErr","Please enter your username.");return;}
+  if(!pass){showErr("teacherPassErr","Please enter your password.");return;}
   spinner(true);
-  try {
+  try{
     const res=await fetch(API_BASE+"/api/teacher/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({username:user,password:pass})});
     const data=await res.json();
     if(!res.ok) throw new Error(data.message||"Login failed");
-    showPage("teacherPage");
-    toast("Welcome, "+user,"success");
-    startTeacherDashboard();
-  } catch(err){ showErr("teacherApiErr",err.message); }
-  finally { spinner(false); }
+    showPage("teacherPage");toast("Welcome, "+user,"success");startTeacherDashboard();
+  }catch(err){showErr("teacherApiErr",err.message);}
+  finally{spinner(false);}
 });
 
-
-/* ═══════════════════════════════════════════
-   PROCTORING ENGINE
-   Vision (face / multiple faces / phone):  proctor.py  (Python/OpenCV/MediaPipe)
-   Audio + Tab / keyword speech:            browser JS
-═══════════════════════════════════════════ */
-// VISION_BASE is defined in CONFIG block above
-
+/* ═══════════════════════════════════════════════════════
+   AI PROCTORING ENGINE
+   100% browser-based using face-api.js — no Python server or webcam on server needed.
+   Detection: face count, audio level, speech keywords, tab/window focus
+   Evidence: JPEG snapshots captured from canvas and sent to Flask /api/proctor/snapshot
+═══════════════════════════════════════════════════════ */
 let currentAppNumber   = null;
 let currentStudentName = null;
-let studentStream      = null;   // audio-only MediaStream
-let speechRec          = null;
-let visibilityBound    = false;
+let faceApiReady       = false;
+let webcamStream       = null;
 let audioCtx           = null;
 let audioAnalyser      = null;
 let audioLevelTimer    = null;
-let visionPollInterval = null;
-let visionOnline       = false;
+let speechRec          = null;
+let faceDetectTimer    = null;
+let visibilityBound    = false;
+let consecutiveNoFace  = 0;
+const COOLDOWNS        = {};
+const COOLDOWN_MS      = {"Face Not Detected":8000,"Multiple Faces":8000,"Audio Detected":5000,"Tab Switch":3000,"Browser Blur":3000};
 
-// Stubs (clip recording is done by proctor.py, not the browser)
-let faceDetectInterval = null;
-let clipRecorder       = null;
-let clipChunks         = [];
-let clipTimer          = null;
-let currentClipFlag    = null;
-let clipRecycleActive  = false;
-let faceApiLoaded      = false;
+async function loadFaceModels(){
+  const MODEL_URL="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+  ]);
+  faceApiReady=true;
+  document.getElementById("faceStatus").textContent="Ready";
+}
 
-const COOLDOWNS = {};
-const COOLDOWN_MS = {"Audio Detected":5000,"Tab Switch":3000,"Browser Blur":3000};
-function canFire(t){const n=Date.now();if((COOLDOWNS[t]||0)>n)return false;COOLDOWNS[t]=n+(COOLDOWN_MS[t]||5000);return true;}
+function canFire(t){const n=Date.now();if((COOLDOWNS[t]||0)>n)return false;COOLDOWNS[t]=n+(COOLDOWN_MS[t]||6000);return true;}
 
-async function initProctoring(appNo) {
-  currentAppNumber = appNo;
-  document.getElementById("webcamBox").style.display = "block";
-
-  // Register candidate with proctor.py
-  try {
-    await fetch(VISION_BASE+"/set_candidate",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({app_number:appNo,student_name:currentStudentName})
-    });
-  } catch(e){console.warn("[proctor.py] not reachable:",e.message);}
-
-  // Show MJPEG stream from proctor.py
-  connectVisionStream();
-  visionPollInterval = setInterval(pollVisionStatus, 3000);
-
-  // Browser handles AUDIO only
-  try {
-    studentStream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    document.getElementById("camDot").style.background = "#27ae60";
-    document.getElementById("camText").textContent     = "Mic Active · Vision: Python AI";
-    startAudioMonitoring(studentStream);
+async function initProctoring(appNo,name){
+  currentAppNumber=appNo; currentStudentName=name;
+  document.getElementById("webcamBox").style.display="block";
+  loadFaceModels().catch(e=>console.warn("[proctor] model load:",e));
+  try{
+    webcamStream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:"user"},audio:true});
+    const vid=document.getElementById("studentVideo");
+    vid.srcObject=webcamStream;
+    await vid.play();
+    document.getElementById("camDot").style.background="#27ae60";
+    document.getElementById("camText").textContent="AI Active · Webcam On";
+    startFaceDetection();
+    startAudioMonitoring();
     startSpeechRecognition();
-  } catch(err){
-    document.getElementById("camDot").style.background = "#e67e22";
-    document.getElementById("camText").textContent     = "Mic unavailable · Vision: Python AI";
+  }catch(err){
+    document.getElementById("camDot").style.background="#e74c3c";
+    document.getElementById("camText").textContent="Camera denied — limited proctoring";
+    toast("⚠ Camera access denied. Grant permission and reload.","error");
   }
   startTabMonitoring();
 }
 
-function connectVisionStream() {
-  const img = document.getElementById("visionFeed");
-  img.src   = VISION_BASE+"/video_feed?t="+Date.now();
-  img.style.display="block";
-  document.getElementById("visionOffline").style.display="none";
-}
-
-async function pollVisionStatus() {
-  try {
-    const res  = await fetch(VISION_BASE+"/status",{signal:AbortSignal.timeout(2000)});
-    const data = await res.json();
-    if(!visionOnline){connectVisionStream();visionOnline=true;}
-    const el = document.getElementById("faceStatus");
-    if(data.face_count===0){el.textContent="❌ No Face";el.style.color="#e74c3c";}
-    else if(data.face_count>1){el.textContent="⚠ "+data.face_count+" Faces";el.style.color="#f0ad4e";}
-    else{el.textContent="✓ Face OK";el.style.color="#27ae60";}
-    if(data.phone_detected) el.textContent+=" 📱";
-  } catch(e){
-    visionOnline=false;
-    document.getElementById("faceStatus").textContent="Python AI offline";
-    document.getElementById("faceStatus").style.color="#aaa";
+async function startFaceDetection(){
+  const vid=document.getElementById("studentVideo");
+  const canvas=document.getElementById("faceCanvas");
+  const opts=new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.4});
+  async function loop(){
+    if(!faceApiReady||vid.readyState<2){faceDetectTimer=setTimeout(loop,800);return;}
+    canvas.width=vid.videoWidth||220; canvas.height=vid.videoHeight||165;
+    const ctx=canvas.getContext("2d"); ctx.clearRect(0,0,canvas.width,canvas.height);
+    try{
+      const dets=await faceapi.detectAllFaces(vid,opts);
+      const count=dets.length;
+      const fEl=document.getElementById("faceStatus");
+      if(count===0){
+        consecutiveNoFace++;
+        fEl.textContent="❌ No Face"; fEl.style.color="#e74c3c";
+        if(consecutiveNoFace>=2&&canFire("Face Not Detected")){
+          await flagEvent("Face Not Detected",92,"Face absent");
+          await captureSnapshot("Face Not Detected");
+        }
+      }else if(count>1){
+        consecutiveNoFace=0; fEl.textContent=`⚠ ${count} Faces`; fEl.style.color="#f0ad4e";
+        dets.forEach(d=>{const{x,y,width:w,height:h}=d.box;ctx.strokeStyle="#f0ad4e";ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);});
+        if(canFire("Multiple Faces")){await flagEvent("Multiple Faces",Math.min(99,80+count*5),`${count} faces`);await captureSnapshot("Multiple Faces");}
+      }else{
+        consecutiveNoFace=0; fEl.textContent="✓ Face OK"; fEl.style.color="#27ae60";
+        const{x,y,width:w,height:h}=dets[0].box; ctx.strokeStyle="#27ae60";ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+      }
+    }catch(e){}
+    faceDetectTimer=setTimeout(loop,1000);
   }
+  loop();
 }
 
-function startAudioMonitoring(stream){
-  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  const src=audioCtx.createMediaStreamSource(stream);
-  audioAnalyser=audioCtx.createAnalyser();audioAnalyser.fftSize=512;
-  src.connect(audioAnalyser);
-  const d=new Uint8Array(audioAnalyser.frequencyBinCount);
-  audioLevelTimer=setInterval(()=>{
-    audioAnalyser.getByteFrequencyData(d);
-    const avg=d.reduce((a,b)=>a+b,0)/d.length;
-    if(avg>34&&canFire("Audio Detected")){
-      flagEvent("Audio Detected",Math.min(99,Math.round(avg*2.8)),"Loud audio");
-    }
-  },1500);
+function startAudioMonitoring(){
+  if(!webcamStream)return;
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(webcamStream);
+    audioAnalyser=audioCtx.createAnalyser(); audioAnalyser.fftSize=512;
+    src.connect(audioAnalyser);
+    const data=new Uint8Array(audioAnalyser.frequencyBinCount);
+    audioLevelTimer=setInterval(()=>{
+      audioAnalyser.getByteFrequencyData(data);
+      const avg=data.reduce((a,b)=>a+b,0)/data.length;
+      if(avg>34&&canFire("Audio Detected")) flagEvent("Audio Detected",Math.min(99,Math.round(avg*2.8)),"Loud audio");
+    },1500);
+  }catch(e){}
 }
 
 function startSpeechRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return;
-  speechRec=new SR();speechRec.continuous=true;speechRec.interimResults=true;speechRec.lang="en-IN";
+  speechRec=new SR(); speechRec.continuous=true; speechRec.interimResults=true; speechRec.lang="en-IN";
   speechRec.onresult=async(ev)=>{
     const tx=Array.from(ev.results).map(r=>r[0].transcript.toLowerCase()).join(" ");
-    for(const kw of FLAGGED_KEYWORDS){
-      if(tx.includes(kw)&&canFire("Audio Detected")){
-        await flagEvent("Audio Detected",91,`Keyword: "${kw}"`);break;
-      }
-    }
+    for(const kw of FLAGGED_KEYWORDS){if(tx.includes(kw)&&canFire("Audio Detected")){await flagEvent("Audio Detected",91,`Keyword: "${kw}"`);break;}}
   };
-  speechRec.onerror=()=>{};
-  speechRec.onend=()=>{try{speechRec.start();}catch(e){}};
+  speechRec.onerror=()=>{}; speechRec.onend=()=>{try{speechRec.start();}catch(e){}};
   try{speechRec.start();}catch(e){}
 }
 
 function startTabMonitoring(){
-  if(visibilityBound)return;visibilityBound=true;
-  document.addEventListener("visibilitychange",async()=>{if(document.hidden&&canFire("Tab Switch"))await flagEvent("Tab Switch",95);});
-  window.addEventListener("blur",async()=>{if(canFire("Browser Blur"))await flagEvent("Browser Blur",85);});
+  if(visibilityBound)return; visibilityBound=true;
+  document.addEventListener("visibilitychange",async()=>{if(document.hidden&&canFire("Tab Switch"))await flagEvent("Tab Switch",95,"Tab switched");});
+  window.addEventListener("blur",async()=>{if(canFire("Browser Blur"))await flagEvent("Browser Blur",85,"Window lost focus");});
 }
 
-// Stubs (proctor.py handles clips)
-function markClipFlag(t){}
-function startClipCycle(s){}
-async function uploadClipToAppwrite(b,t){}
-
-async function flagEvent(eventType,confidence,note=""){
-  if(!currentAppNumber)return;
+async function captureSnapshot(eventType){
+  const vid=document.getElementById("studentVideo");
+  if(!vid||vid.readyState<2)return;
   try{
-    await fetch(API_BASE+"/api/proctor/event",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",
-      body:JSON.stringify({app_number:currentAppNumber,event_type:eventType,confidence:confidence,note:note})});
+    const c=document.createElement("canvas"); c.width=vid.videoWidth||320; c.height=vid.videoHeight||240;
+    c.getContext("2d").drawImage(vid,0,0,c.width,c.height);
+    const dataUrl=c.toDataURL("image/jpeg",0.65);
+    await fetch(API_BASE+"/api/proctor/snapshot",{
+      method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",
+      body:JSON.stringify({app_number:currentAppNumber,student_name:currentStudentName,event_type:eventType,image:dataUrl})
+    });
   }catch(e){}
 }
 
-function stopProctoring() {
-  clearInterval(visionPollInterval);
-  clearInterval(audioLevelTimer);
-  if(speechRec){ try{speechRec.stop();}catch(e){} }
-  if(audioCtx){ audioCtx.close(); audioCtx=null; }
-  if(studentStream){ studentStream.getTracks().forEach(t=>t.stop()); studentStream=null; }
-  // Tell proctor.py to stop monitoring this candidate
-  try{ fetch(VISION_BASE+"/clear_candidate",{method:"POST"}); }catch(e){}
+async function flagEvent(eventType,confidence,note=""){
+  if(!currentAppNumber)return;
+  try{await fetch(API_BASE+"/api/proctor/event",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({app_number:currentAppNumber,event_type:eventType,confidence:confidence,note:note})});}catch(e){}
+}
+
+function stopProctoring(){
+  clearTimeout(faceDetectTimer); clearInterval(audioLevelTimer);
+  if(speechRec){try{speechRec.stop();}catch(e){}}
+  if(audioCtx){audioCtx.close();audioCtx=null;}
+  if(webcamStream){webcamStream.getTracks().forEach(t=>t.stop());webcamStream=null;}
   document.getElementById("webcamBox").style.display="none";
 }
+window.addEventListener("beforeunload",stopProctoring);
 
-
-/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
    TEACHER DASHBOARD
-═══════════════════════════════════════════ */
-let teacherView         = "dash";
-let teacherPollInterval = null;
-let teacherTimerInt     = null;
-let localStudents       = [];
-let localAuditLog       = [];
-let localClips          = [];
-let liveFeedOnline      = false;
+═══════════════════════════════════════════════════════ */
+let teacherView="dash",teacherPollInterval=null,teacherTimerInt=null;
+let localStudents=[],localAuditLog=[],localSnapshots=[];
 
-/* ─── Live Feed Handlers ─── */
-function handleFeedError() {
-  liveFeedOnline = false;
-  document.getElementById("liveFeedImg").style.display = "none";
-  const offline = document.getElementById("liveFeedOffline");
-  offline.style.display = "flex";
-  document.getElementById("liveFeedStatus").textContent = "Proctor engine offline";
-  document.getElementById("liveFeedBadge").style.background = "#3a1111";
-  document.getElementById("liveFeedBadge").style.color = "#e74c3c";
-  document.getElementById("liveFeedBadge").textContent = "Offline";
-}
-
-function handleFeedLoad() {
-  if (!liveFeedOnline) {
-    liveFeedOnline = true;
-    document.getElementById("liveFeedImg").style.display = "block";
-    document.getElementById("liveFeedOffline").style.display = "none";
-    document.getElementById("liveFeedStatus").textContent = "Live — AI detection active";
-    document.getElementById("liveFeedBadge").style.background = "#1a3a1a";
-    document.getElementById("liveFeedBadge").style.color = "#27ae60";
-    document.getElementById("liveFeedBadge").textContent = "● Live";
-  }
-}
-
-async function pollLiveFeedStatus() {
-  try {
-    const res = await fetch("https://your-backend-name.onrender.com/status");
-    const d = await res.json();
-    const el = document.getElementById("liveFeedCandidate");
-    if (d.student_name && d.student_name !== "Unknown") {
-      el.textContent = "🎓 " + d.student_name;
-      el.style.color = "#7ec8e3";
-      // Update face status in feed footer
-      const statusEl = document.getElementById("liveFeedStatus");
-      if (!liveFeedOnline) return;
-      if (d.status_text === "Face OK") {
-        statusEl.textContent = "✅ Face detected — " + d.student_name;
-      } else if (d.status_text === "No Face") {
-        statusEl.textContent = "⚠️ No face detected!";
-      } else if (d.status_text && d.status_text.includes("Multiple")) {
-        statusEl.textContent = "🚨 " + d.status_text;
-      } else {
-        statusEl.textContent = d.status_text || "Live";
-      }
-    } else {
-      el.textContent = "No candidate active";
-      el.style.color = "#aaa";
-    }
-  } catch(e) {
-    handleFeedError();
-  }
-}
-
-
-function startTeacherDashboard() {
-  function tick(){ const n=new Date(); document.getElementById("timer").textContent=pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds()); }
+function startTeacherDashboard(){
+  function tick(){const n=new Date();document.getElementById("timer").textContent=pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds());}
   tick(); teacherTimerInt=setInterval(tick,1000);
-  // Retry live feed image if offline
-  const feedImg = document.getElementById("liveFeedImg");
-  feedImg.src = API_BASE+"/video_feed?" + Date.now();
-  setInterval(()=>{
-    if(!liveFeedOnline){ feedImg.src = API_BASE+"/video_feed?" + Date.now(); }
-  }, 5000);
-  // Poll proctor status for candidate name + face status
-  pollLiveFeedStatus();
-  setInterval(pollLiveFeedStatus, 3000);
-  refreshAll();
-  teacherPollInterval=setInterval(refreshAll,4000);
+  refreshAll(); teacherPollInterval=setInterval(refreshAll,4000);
 }
 
-async function refreshAll() { await Promise.all([fetchStudents(),fetchAuditEvents(),fetchClips()]); }
+async function refreshAll(){await Promise.all([fetchStudents(),fetchAuditEvents(),fetchSnapshots()]);}
 
-async function fetchStudents() {
-  try {
-    const [sr,ss]=await Promise.all([
-      fetch(API_BASE+"/api/teacher/students",{credentials:"include"}),
-      fetch(API_BASE+"/api/proctor/summary",{credentials:"include"})
-    ]);
-    const sd=await sr.json(); const sm=await ss.json();
-    if(sr.ok){ localStudents=sd.students.map(s=>({...s,score:s.risk_score,events:s.event_count,status:s.last_event})); document.getElementById("totalCandidates").textContent=sd.total; }
-    if(ss.ok){ document.getElementById("s-active").textContent=sm.logged_in; document.getElementById("s-flagged").textContent=sm.flagged; document.getElementById("s-warnings").textContent=sm.warnings; document.getElementById("s-events").textContent=sm.total_events; }
-  } catch(e){}
-  renderStudentCards(); renderCharts();
+async function fetchStudents(){
+  try{
+    const[sr,ss]=await Promise.all([fetch(API_BASE+"/api/teacher/students",{credentials:"include"}),fetch(API_BASE+"/api/proctor/summary",{credentials:"include"})]);
+    const sd=await sr.json(),sm=await ss.json();
+    if(sr.ok){localStudents=sd.students.map(s=>({...s,score:s.risk_score,events:s.event_count,status:s.last_event}));document.getElementById("totalCandidates").textContent=sd.total;}
+    if(ss.ok){document.getElementById("s-active").textContent=sm.logged_in;document.getElementById("s-flagged").textContent=sm.flagged;document.getElementById("s-warnings").textContent=sm.warnings;document.getElementById("s-events").textContent=sm.total_events;}
+  }catch(e){}
+  renderStudentCards();renderCharts();
 }
 
-async function fetchAuditEvents() {
-  try {
+async function fetchAuditEvents(){
+  try{
     const res=await fetch(API_BASE+"/api/proctor/events",{credentials:"include"});
     const d=await res.json();
-    if(res.ok){ localAuditLog=d.events.map(e=>({time:e.time,student:e.student_name,type:e.event_type,level:e.level,conf:e.confidence,impact:e.impact,note:e.note||"",id:e.id})); }
-    if(teacherView==="audit") renderAuditTable();
+    if(res.ok)localAuditLog=d.events.map(e=>({time:e.time,student:e.student_name,type:e.event_type,level:e.level,conf:e.confidence,impact:e.impact,note:e.note||"",id:e.id}));
+    if(teacherView==="audit")renderAuditTable();
     renderLatestFlags();
-  } catch(e){}
+  }catch(e){}
 }
 
-async function fetchClips() {
-  try {
-    const res=await fetch(API_BASE+"/api/proctor/clips",{credentials:"include"});
-    const d=await res.json();
-    if(res.ok){ localClips=d.clips; document.getElementById("s-clips").textContent=localClips.length; if(teacherView==="evidence") renderEvidenceView(); }
-  } catch(e){}
+async function fetchSnapshots(){
+  try{
+    const res=await fetch(API_BASE+"/api/proctor/snapshots",{credentials:"include"});
+    if(res.ok){const d=await res.json();localSnapshots=d.snapshots||[];document.getElementById("s-snaps").textContent=localSnapshots.length;if(teacherView==="snapshots")renderSnapshotView();}
+  }catch(e){}
 }
 
-function renderStudentCards() {
-  if(!localStudents.length){ document.getElementById("studentGrid").innerHTML='<div style="color:#aaa;font-size:13px;padding:20px">No candidates online yet.</div>'; return; }
-  const html=localStudents.map(s=>{
+function renderStudentCards(){
+  if(!localStudents.length){document.getElementById("studentGrid").innerHTML='<div style="color:#aaa;font-size:13px;padding:20px">No candidates online yet.</div>';return;}
+  document.getElementById("studentGrid").innerHTML=localStudents.map(s=>{
     const cc=s.score>=70?"danger":s.score>=30?"warn":"";
-    let badge;
-    if(s.submitted)     badge=`<span class="card-badge badge-green">✓ Submitted</span>`;
-    else if(!s.started) badge=`<span class="card-badge badge-grey">⏳ Waiting</span>`;
-    else if(s.score>=70)badge=`<span class="card-badge badge-red">⚠ ${s.status}</span>`;
-    else if(s.score>=30)badge=`<span class="card-badge badge-orange">⚑ ${s.status}</span>`;
-    else                badge=`<span class="card-badge badge-green">✓ Normal</span>`;
-    const cn=localClips.filter(c=>c.app_number===s.app_number).length;
-    const cb=cn>0?`<button onclick="openStudentEvidence('${s.app_number}','${s.name}')" style="font-size:10px;padding:2px 7px;border:1px solid #00529b;background:#e8f0fb;color:#00529b;border-radius:3px;cursor:pointer">🎥 ${cn} clip${cn>1?"s":""}</button>`:"";
-    // Live feed button for active (started, not submitted) candidates
-    const livebtn = (s.started && !s.submitted)
-      ? `<button class="card-live-btn" onclick="switchToLiveFeed('${s.name}')" title="View live camera">📹 Live</button>` : "";
-    const btnRow = (cb||livebtn) ? `<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">${cb}${livebtn}</div>` : "";
-    return `<div class="card ${cc}"><div class="card-body"><div class="card-name">${s.name}</div>${badge}<div class="card-meta">Risk: ${s.score}/100 · ${s.events} events</div>${btnRow}</div></div>`;
+    let badge=s.submitted?`<span class="card-badge badge-green">✓ Submitted</span>`:!s.started?`<span class="card-badge badge-grey">⏳ Waiting</span>`:s.score>=70?`<span class="card-badge badge-red">⚠ ${s.status}</span>`:s.score>=30?`<span class="card-badge badge-orange">⚑ ${s.status}</span>`:`<span class="card-badge badge-green">✓ Normal</span>`;
+    const sc=localSnapshots.filter(x=>x.app_number===s.app_number).length;
+    const sb=sc>0?`<button onclick="openStudentSnapshots('${s.app_number}','${s.name}')" style="font-size:10px;padding:2px 7px;border:1px solid #00529b;background:#e8f0fb;color:#00529b;border-radius:3px;cursor:pointer;margin-top:4px">📸 ${sc} snap${sc>1?"s":""}</button>`:"";
+    return `<div class="card ${cc}"><div class="card-body"><div class="card-name">${s.name}</div>${badge}<div class="card-meta">Risk: ${s.score}/100 · ${s.events} events</div>${sb}</div></div>`;
   }).join("");
-  document.getElementById("studentGrid").innerHTML=html;
 }
 
-function renderCharts() {
-  // Event type bar chart
-  const tc={}; localAuditLog.filter(e=>e.level!=="info").forEach(e=>{tc[e.type]=(tc[e.type]||0)+1;});
+function renderCharts(){
+  const tc={};localAuditLog.filter(e=>e.level!=="info").forEach(e=>{tc[e.type]=(tc[e.type]||0)+1;});
   const maxT=Math.max(...Object.values(tc),1);
-  document.getElementById("typeChart").innerHTML=Object.entries(tc).sort((a,b)=>b[1]-a[1]).map(([t,c])=>`
-    <div class="bar-row"><div class="bar-label">${t}</div><div class="bar-track"><div class="bar-fill${c<=2?" warn":""}" style="width:${Math.round(c/maxT*100)}%"></div></div><div class="bar-count">${c}</div></div>`).join("")||'<div style="color:#aaa;font-size:12px">No events yet.</div>';
-  // Risk leaderboard bar chart
-  const sorted=[...localStudents].sort((a,b)=>b.score-a.score);
-  const maxR=Math.max(...sorted.map(s=>s.score),1);
-  document.getElementById("riskChart").innerHTML=sorted.slice(0,6).map(s=>`
-    <div class="bar-row"><div class="bar-label">${s.name}</div><div class="bar-track"><div class="bar-fill${s.score<70?" warn":""}" style="width:${Math.round(s.score/maxR*100)}%"></div></div><div class="bar-count">${s.score}</div></div>`).join("")||'<div style="color:#aaa;font-size:12px">No data yet.</div>';
+  document.getElementById("typeChart").innerHTML=Object.entries(tc).sort((a,b)=>b[1]-a[1]).map(([t,c])=>`<div class="bar-row"><div class="bar-label">${t}</div><div class="bar-track"><div class="bar-fill${c<=2?" warn":""}" style="width:${Math.round(c/maxT*100)}%"></div></div><div class="bar-count">${c}</div></div>`).join("")||'<div style="color:#aaa;font-size:12px">No events yet.</div>';
+  const sorted=[...localStudents].sort((a,b)=>b.score-a.score);const maxR=Math.max(...sorted.map(s=>s.score),1);
+  document.getElementById("riskChart").innerHTML=sorted.slice(0,6).map(s=>`<div class="bar-row"><div class="bar-label">${s.name}</div><div class="bar-track"><div class="bar-fill${s.score<70?" warn":""}" style="width:${Math.round(s.score/maxR*100)}%"></div></div><div class="bar-count">${s.score}</div></div>`).join("")||'<div style="color:#aaa;font-size:12px">No data yet.</div>';
 }
 
-function renderLatestFlags() {
+function renderLatestFlags(){
   const flags=localAuditLog.filter(e=>e.level!=="info").slice(0,8);
-  if(!flags.length){ document.getElementById("latestBody").innerHTML='<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No flags yet.</td></tr>'; return; }
+  if(!flags.length){document.getElementById("latestBody").innerHTML='<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px">No flags yet.</td></tr>';return;}
   const sty={danger:"background:#fdedec;color:#e74c3c",warn:"background:#fef9e7;color:#e67e22"};
   document.getElementById("latestBody").innerHTML=flags.map(e=>`<tr><td style="color:#aaa;font-size:11px">${e.time}</td><td style="font-size:12px"><b>${e.student}</b></td><td><span style="${sty[e.level]||""};padding:2px 7px;border-radius:4px;font-size:11px">${e.type}</span></td></tr>`).join("");
 }
 
-function renderAuditTable() {
+function renderAuditTable(){
   const search=(document.getElementById("auditSearch").value||"").toLowerCase();
   const filter=document.getElementById("auditType").value;
   const list=localAuditLog.filter(e=>e.level!=="info"&&e.student.toLowerCase().includes(search)&&(!filter||e.type===filter));
-  if(!list.length){ document.getElementById("auditBody").innerHTML='<tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px">No events found.</td></tr>'; return; }
+  if(!list.length){document.getElementById("auditBody").innerHTML='<tr><td colspan="6" style="text-align:center;color:#aaa;padding:30px">No events found.</td></tr>';return;}
   const sty={danger:"background:#fdedec;color:#e74c3c",warn:"background:#fef9e7;color:#e67e22"};
-  document.getElementById("auditBody").innerHTML=list.map(e=>{
-    const clips=localClips.filter(c=>c.student_name===e.student&&c.event_type===e.type);
-    const eb=clips.length>0?`<button onclick="openClipModal('${clips[0].file_id}','${e.student}','${e.type}')" style="font-size:10px;padding:2px 7px;border:1px solid #27ae60;background:#e9f7ef;color:#27ae60;border-radius:3px;cursor:pointer">▶ View</button>`:`<span style="color:#ccc;font-size:11px">—</span>`;
-    return `<tr><td style="color:#aaa;font-size:11px">${e.time}</td><td><b>${e.student}</b></td><td><span style="${sty[e.level]||""};padding:2px 8px;border-radius:4px;font-size:11px">${e.type}</span>${e.note?`<div style="font-size:10px;color:#999;margin-top:2px">${e.note}</div>`:""}</td><td style="font-size:11px">${e.conf}%</td><td style="font-size:11px;color:#e67e22">+${e.impact}</td><td style="font-size:11px;color:#888">${e.note||"—"}</td><td>${eb}</td></tr>`;
-  }).join("");
+  document.getElementById("auditBody").innerHTML=list.map(e=>`<tr><td style="color:#aaa;font-size:11px">${e.time}</td><td><b>${e.student}</b></td><td><span style="${sty[e.level]||""};padding:2px 8px;border-radius:4px;font-size:11px">${e.type}</span>${e.note?`<div style="font-size:10px;color:#999;margin-top:2px">${e.note}</div>`:""}</td><td style="font-size:11px">${e.conf}%</td><td style="font-size:11px;color:#e67e22">+${e.impact}</td><td style="font-size:11px;color:#888">${e.note||"—"}</td></tr>`).join("");
 }
 
-function renderEvidenceView() {
-  const search=(document.getElementById("evSearch").value||"").toLowerCase();
-  const filter=document.getElementById("evType").value;
-  const list=localClips.filter(c=>c.student_name.toLowerCase().includes(search)&&(!filter||c.event_type===filter));
-  const vault=document.getElementById("evidenceVault");
-  if(!list.length){ vault.innerHTML='<div style="color:#aaa;font-size:13px;padding:20px">No evidence clips saved yet.</div>'; return; }
-  vault.innerHTML=list.map(c=>{
-    const url=`${APPWRITE.endpoint}/storage/buckets/${APPWRITE.bucketId}/files/${c.file_id}/view?project=${APPWRITE.projectId}`;
-    return `<div class="ev-card" onclick="openClipModal('${c.file_id}','${c.student_name}','${c.event_type}')">
-      <div style="background:#111;height:120px;display:flex;align-items:center;justify-content:center;color:white;font-size:32px;cursor:pointer">▶</div>
-      <div class="ev-card-info"><div class="ev-card-type">⚠ ${c.event_type}</div><div style="font-weight:bold;margin-top:2px;font-size:12px">${c.student_name}</div><div class="ev-card-time">${c.time}</div></div>
-    </div>`;
-  }).join("");
+function renderSnapshotView(){
+  const search=(document.getElementById("snapSearch").value||"").toLowerCase();
+  const filter=document.getElementById("snapType").value;
+  const list=localSnapshots.filter(s=>s.student_name.toLowerCase().includes(search)&&(!filter||s.event_type===filter));
+  const grid=document.getElementById("snapGrid");
+  if(!list.length){grid.innerHTML='<div style="color:#aaa;font-size:13px;padding:20px;grid-column:1/-1">No snapshots yet.</div>';return;}
+  grid.innerHTML=list.map(s=>`<div class="snap-card" onclick="openSnapshotModal('${s.id}')"><img src="${s.image}" loading="lazy"/><div class="snap-info"><div class="snap-flag">⚠ ${s.event_type}</div><div style="font-weight:bold;font-size:11px;color:#ddd">${s.student_name}</div><div class="ev-card-time">${s.time}</div></div></div>`).join("");
 }
 
-function openClipModal(fileId,studentName,eventType) {
-  const url=`${APPWRITE.endpoint}/storage/buckets/${APPWRITE.bucketId}/files/${fileId}/view?project=${APPWRITE.projectId}`;
-  document.getElementById("modalTitle").textContent=`🎥 Evidence — ${eventType}`;
-  document.getElementById("modalMeta").textContent=`Student: ${studentName}`;
-  document.getElementById("evidenceGrid").innerHTML=`<div class="ev-card" style="grid-column:1/-1">
-    <video controls style="width:100%;max-height:380px;background:#000" src="${url}"></video>
-    <div class="ev-card-info"><div class="ev-card-type">⚠ ${eventType}</div><div style="margin-top:4px"><a href="${url}" target="_blank" style="color:#00529b;font-size:11px">🔗 Open in new tab / Download</a></div></div>
-  </div>`;
+function openStudentSnapshots(appNo,name){
+  const list=localSnapshots.filter(s=>s.app_number===appNo);
+  document.getElementById("modalTitle").textContent=`📸 Snapshots — ${name}`;
+  document.getElementById("modalMeta").textContent=`${list.length} snapshot(s)`;
+  document.getElementById("evidenceGrid").innerHTML=list.map(s=>`<div class="ev-card"><img src="${s.image}" style="width:100%;height:140px;object-fit:cover;display:block" loading="lazy"/><div class="ev-card-info"><div class="ev-card-type">⚠ ${s.event_type}</div><div class="ev-card-time">${s.time}</div></div></div>`).join("");
   document.getElementById("evidenceModal").classList.add("show");
 }
 
-function openStudentEvidence(appNo,name) {
-  const clips=localClips.filter(c=>c.app_number===appNo);
-  document.getElementById("modalTitle").textContent=`🎥 All Evidence — ${name}`;
-  document.getElementById("modalMeta").textContent=`${clips.length} clip(s) recorded`;
-  document.getElementById("evidenceGrid").innerHTML=clips.map(c=>{
-    const url=`${APPWRITE.endpoint}/storage/buckets/${APPWRITE.bucketId}/files/${c.file_id}/view?project=${APPWRITE.projectId}`;
-    return `<div class="ev-card"><video controls src="${url}" style="max-height:140px;width:100%;object-fit:cover"></video>
-      <div class="ev-card-info"><div class="ev-card-type">⚠ ${c.event_type}</div><div class="ev-card-time">${c.time}</div><a href="${url}" target="_blank" style="color:#00529b;font-size:10px">Open full</a></div></div>`;
-  }).join("");
+function openSnapshotModal(id){
+  const s=localSnapshots.find(x=>x.id===id);if(!s)return;
+  document.getElementById("modalTitle").textContent=`📸 ${s.event_type} — ${s.student_name}`;
+  document.getElementById("modalMeta").textContent=`Captured at ${s.time}`;
+  document.getElementById("evidenceGrid").innerHTML=`<div class="ev-card" style="grid-column:1/-1"><img src="${s.image}" style="width:100%;max-height:420px;object-fit:contain;background:#111;display:block"/><div class="ev-card-info"><div class="ev-card-type">⚠ ${s.event_type}</div><div>${s.student_name} · ${s.time}</div></div></div>`;
   document.getElementById("evidenceModal").classList.add("show");
 }
 
-function closeEvidence() { document.getElementById("evidenceModal").classList.remove("show"); document.querySelectorAll("#evidenceGrid video").forEach(v=>v.pause()); }
+function closeEvidence(){document.getElementById("evidenceModal").classList.remove("show");}
 
-function switchToLiveFeed(studentName) {
-  // Switch to dashboard view and scroll to the live feed panel
-  switchTeacherView("dash");
-  const panel = document.querySelector(".live-feed-panel");
-  if (panel) panel.scrollIntoView({ behavior: "smooth", block: "center" });
-  document.getElementById("liveFeedCandidate").textContent = "🎓 " + studentName;
-  document.getElementById("liveFeedCandidate").style.color = "#7ec8e3";
-  toast("📹 Viewing live feed for " + studentName);
-}
-
-function switchTeacherView(view) {
+function switchTeacherView(view){
   teacherView=view;
   document.querySelectorAll(".t-page").forEach(p=>p.classList.remove("active"));
   document.getElementById("t-"+view).classList.add("active");
-  if(view==="audit")    renderAuditTable();
-  if(view==="evidence") renderEvidenceView();
-  if(view==="dash")     { renderStudentCards(); renderCharts(); renderLatestFlags(); }
+  if(view==="audit")renderAuditTable();
+  if(view==="snapshots")renderSnapshotView();
+  if(view==="dash"){renderStudentCards();renderCharts();renderLatestFlags();}
 }
 
-async function teacherLogout() {
-  clearInterval(teacherPollInterval); clearInterval(teacherTimerInt);
-  localStudents=[]; localAuditLog=[]; localClips=[];
-  try{ await fetch(API_BASE+"/api/teacher/logout",{method:"POST",credentials:"include"}); }catch{}
-  showPage("loginPage"); toast("Logged out");
+async function teacherLogout(){
+  clearInterval(teacherPollInterval);clearInterval(teacherTimerInt);
+  localStudents=[];localAuditLog=[];localSnapshots=[];
+  try{await fetch(API_BASE+"/api/teacher/logout",{method:"POST",credentials:"include"});}catch{}
+  showPage("loginPage");toast("Logged out");
 }
 
-async function exportAudit() {
-  try {
-    const res=await fetch(API_BASE+"/api/proctor/export",{credentials:"include"});
-    if(res.ok){ const b=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="audit-report.csv"; a.click(); return; }
-  } catch{}
+async function exportAudit(){
+  try{const res=await fetch(API_BASE+"/api/proctor/export",{credentials:"include"});if(res.ok){const b=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="audit-report.csv";a.click();return;}}catch{}
   const rows=[["Time","Student","Event","Confidence","Impact","Note"]];
   localAuditLog.filter(e=>e.level!=="info").forEach(e=>rows.push([e.time,e.student,e.type,e.conf+"%","+"+e.impact,e.note]));
-  const a=document.createElement("a"); a.href="data:text/csv,"+encodeURIComponent(rows.map(r=>r.join(",")).join("\n")); a.download="audit-report.csv"; a.click();
+  const a=document.createElement("a");a.href="data:text/csv,"+encodeURIComponent(rows.map(r=>r.join(",")).join("\n"));a.download="audit-report.csv";a.click();
 }
 
-window.addEventListener("beforeunload",stopProctoring);
-
-/* ─── AUTO-LAUNCH IN NEW WINDOW ─── */
-// Runs after all declarations. If this window was opened as an exam popup,
-// localStorage will have a fresh candidateSession token — boot straight to instructions.
-(function autoLaunchIfCandidateWindow(){
-  try {
-    const raw = localStorage.getItem("candidateSession");
-    if(!raw) return;
-    const d = JSON.parse(raw);
-    // Only consume the token if it was set within the last 10 seconds
-    if(Date.now() - d.ts > 10000) return;
-    // Remove immediately so the login-portal window doesn't also trigger
+/* Auto-launch in popup exam window */
+(function autoLaunch(){
+  try{
+    const raw=localStorage.getItem("candidateSession");if(!raw)return;
+    const d=JSON.parse(raw);if(Date.now()-d.ts>10000)return;
     localStorage.removeItem("candidateSession");
-    // Boot the candidate exam in this new window
-    currentAppNumber   = d.app_number;
-    currentStudentName = d.name;
-    document.getElementById("candidateName").textContent = d.name;
-    showPage("instructionsPage");
-    toast("Welcome, "+d.name,"success");
-    initProctoring(d.app_number);
-  } catch(e){ console.warn("[autoLaunch]",e); }
+    currentAppNumber=d.app_number;currentStudentName=d.name;
+    document.getElementById("candidateName").textContent=d.name;
+    showPage("instructionsPage");toast("Welcome, "+d.name,"success");
+    initProctoring(d.app_number,d.name);
+  }catch(e){console.warn("[autoLaunch]",e);}
 })();
 </script>
 </body>
