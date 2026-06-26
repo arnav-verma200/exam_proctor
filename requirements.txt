@@ -5,3 +5,10 @@ gunicorn
 opencv-python-headless
 mediapipe
 numpy
+psycopg2-binary
+sqlalchemy>=2.0
+PyJWT
+alembic
+redis
+python-dotenv
+pydantic

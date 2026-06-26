@@ -1,0 +1,13 @@
+.git/
+.gitignore
+.env
+__pycache__/
+*.pyc
+.vscode/
+clips/
+.DS_Store
+*.md
+*.log
+tests/
+.agents/
+skills-lock.json
